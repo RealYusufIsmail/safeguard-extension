@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "SafeGuard - Content & Site Blocker",
+  "version": "1.0.0",
+  "description": "Block adult content and custom websites to keep your browsing safe.",
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "storage",
+    "tabs",
+    "webNavigation",
+    "alarms",
+    "scripting"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    {
+      "resources": ["models/nsfw/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["classifier.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "adult_block_rules",
+        "enabled": true,
+        "path": "rules/adult_block_rules.json"
+      }
+    ]
+  }
+}
