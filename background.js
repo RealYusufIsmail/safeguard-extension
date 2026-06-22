@@ -112,12 +112,25 @@ async function rebuildRules() {
 // ── Known adult domains ───────────────────────────────────────────────────────
 
 const KNOWN_ADULT = new Set([
+  // mainstream tube sites
   'pornhub.com','xvideos.com','xnxx.com','xhamster.com','redtube.com',
-  'youporn.com','tube8.com','brazzers.com','bangbros.com','naughtyamerica.com',
-  'realitykings.com','mofos.com','digitalplayground.com','vivid.com','pornmd.com',
-  'tnaflix.com','beeg.com','spankbang.com','hclips.com','motherless.com',
-  'slutload.com','drtuber.com','empflix.com','fapdu.com','fuq.com',
-  'sunporno.com','porntrex.com','hdporn.com','porndig.com','iceporn.com',
+  'youporn.com','tube8.com','beeg.com','spankbang.com','tnaflix.com',
+  'drtuber.com','empflix.com','hclips.com','motherless.com','slutload.com',
+  'fapdu.com','fuq.com','sunporno.com','porntrex.com','hdporn.com',
+  'porndig.com','iceporn.com','pornmd.com',
+  // studios
+  'brazzers.com','bangbros.com','naughtyamerica.com','realitykings.com',
+  'mofos.com','digitalplayground.com','vivid.com',
+  // hentai
+  'nhentai.net','nhentai.to','hentaifox.com','hentairead.com',
+  'hentai2read.com','hentaimama.io','hentai.tv','fakku.net',
+  'tsumino.com','hanime.tv','9hentai.to','imhentai.xxx',
+  'hentaihere.com','luscious.net','hentaiworld.tv',
+  // other common adult
+  'xart.com','nubiles.net','teamskeet.com','mrskin.com',
+  'hegre.com','met-art.com','onlyfans.com','fansly.com',
+  'chaturbate.com','cam4.com','myfreecams.com','stripchat.com',
+  'livejasmin.com','bongacams.com','camsoda.com',
 ]);
 
 function isKnownAdult(hostname) {
@@ -127,30 +140,10 @@ function isKnownAdult(hostname) {
   return false;
 }
 
-// ── On-demand NSFW image scanner injection ────────────────────────────────────
-
-const _scannedTabs = new Set();   // tabs we've already injected into this navigation
-
-async function injectScanner(tabId) {
-  if (_scannedTabs.has(tabId)) return;
-  _scannedTabs.add(tabId);
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      // nsfwjs.min.js is a standalone bundle (TensorFlow.js included).
-      files: ['vendor/nsfwjs.min.js', 'nsfw-scan.js'],
-    });
-  } catch (e) {
-    _scannedTabs.delete(tabId);
-    console.warn('[SafeGuard] scanner injection failed:', e.message);
-  }
-}
-
 // ── webNavigation — single place all blocking decisions are made ──────────────
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (details.frameId !== 0) return;
-  _scannedTabs.delete(details.tabId);   // fresh navigation → allow a new scan
 
   let url, hostname;
   try {
@@ -258,27 +251,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  // Content gate flagged this tab as borderline → lazy-inject the image scanner.
-  if (message.type === 'NSFW_SCAN_REQUEST') {
-    const tabId = _sender.tab && _sender.tab.id;
-    if (tabId != null) injectScanner(tabId);
-    return false;
-  }
-
-  // Scanner confirmed adult imagery → record the block and show blocked page.
-  if (message.type === 'NSFW_CONFIRMED') {
-    const tabId = _sender.tab && _sender.tab.id;
-    if (tabId != null) {
-      recordBlock().then(async () => {
-        const stats = await getStats();
-        const host = message.host || 'this page';
-        const blockedUrl = chrome.runtime.getURL('blocked.html') +
-          '?site=' + encodeURIComponent(host) + '&reason=image&today=' + stats.today;
-        chrome.tabs.update(tabId, { url: blockedUrl });
-      });
-    }
-    return false;
-  }
 });
 
 // ── Startup ───────────────────────────────────────────────────────────────────

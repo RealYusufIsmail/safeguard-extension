@@ -9,16 +9,9 @@
     "storage",
     "tabs",
     "webNavigation",
-    "alarms",
-    "scripting"
+    "alarms"
   ],
   "host_permissions": ["<all_urls>"],
-  "web_accessible_resources": [
-    {
-      "resources": ["models/nsfw/*"],
-      "matches": ["<all_urls>"]
-    }
-  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -30,13 +23,6 @@
       "128": "icons/icon128.png"
     }
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["classifier.js", "content.js"],
-      "run_at": "document_start"
-    }
-  ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

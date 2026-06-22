@@ -104,6 +104,17 @@ function scoreSegment(tokens, mult) {
   return { segScore, segMax, matched };
 }
 
+// High-value substrings to scan for directly in the raw hostname.
+// Catches compound words like "nhentai", "xporno", "sexhd" that tokenization
+// can't split because there's no separator character between the parts.
+const SUBSTRING_TERMS = [
+  'porn', 'hentai', 'xxx', 'nsfw', 'nude', 'naked', 'milf',
+  'cumshot', 'creampie', 'gangbang', 'blowjob', 'handjob',
+  'bdsm', 'bondage', 'incest', 'orgasm', 'fetish', 'erotic',
+  'escort', 'camgirl', 'onlyfans', 'sexcam', 'nudecam',
+  'fap', 'wank', 'dildo', 'anal', 'pussy', 'cock',
+];
+
 // Returns { isAdult, score, confidence, matchedTokens }
 function classifyURL(url) {
   let parsed;
@@ -119,9 +130,21 @@ function classifyURL(url) {
   const pathSeg = scoreSegment(tokenize(parsed.pathname), PATH_MULT);
   const querSeg = scoreSegment(tokenize(parsed.search), QUERY_MULT);
 
-  const totalScore = domSeg.segScore + pathSeg.segScore + querSeg.segScore;
-  const maxToken   = Math.max(domSeg.segMax, pathSeg.segMax, querSeg.segMax);
-  const matched    = [...new Set([...domSeg.matched, ...pathSeg.matched, ...querSeg.matched])];
+  let totalScore = domSeg.segScore + pathSeg.segScore + querSeg.segScore;
+  let maxToken   = Math.max(domSeg.segMax, pathSeg.segMax, querSeg.segMax);
+  const matched  = [...new Set([...domSeg.matched, ...pathSeg.matched, ...querSeg.matched])];
+
+  // Substring scan on the raw hostname — catches compound adult words that
+  // tokenization misses (e.g. "nhentai" contains "hentai", "xporno" → "porn").
+  const rawHost = hostClean.toLowerCase();
+  for (const term of SUBSTRING_TERMS) {
+    if (rawHost.includes(term) && !matched.includes(term)) {
+      const w = (WEIGHTS[term] || 8.0) * DOMAIN_MULT;
+      totalScore += w;
+      if (w > maxToken) maxToken = w;
+      matched.push(term + '*');  // * marks a substring match for logging
+    }
+  }
 
   const isAdult = maxToken >= THRESHOLD_SINGLE || totalScore >= THRESHOLD_TOTAL;
   const confidence = Math.min(1, totalScore / 18);

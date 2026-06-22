@@ -69,28 +69,6 @@
     input:checked + .slider::before { transform: translateX(20px); }
     input:disabled + .slider { opacity: 0.45; cursor: not-allowed; }
 
-    /* Sensitivity slider */
-    .sensitivity { margin-top: 14px; transition: opacity 0.2s; }
-    .sensitivity.disabled { opacity: 0.4; pointer-events: none; }
-    .sensitivity-head {
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px; color: #94a3b8; margin-bottom: 8px;
-    }
-    .sensitivity-val { font-weight: 600; color: #f43f5e; }
-    .sensitivity input[type="range"] {
-      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
-      border-radius: 5px; background: #334155; outline: none; cursor: pointer;
-    }
-    .sensitivity input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
-      border-radius: 50%; background: #f43f5e; border: 2px solid #0f172a;
-      box-shadow: 0 0 0 1px #f43f5e; cursor: pointer;
-    }
-    .sensitivity-ticks {
-      display: flex; justify-content: space-between;
-      font-size: 10px; color: #475569; margin-top: 6px;
-    }
-
     /* Focus mode */
     .focus-section { background: rgba(244,63,94,0.04); }
     .focus-active-banner {
@@ -132,6 +110,15 @@
     .sync-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f43f5e, #f97316); border-radius: 2px; transition: width 0.4s; }
     .sync-progress-bar.indeterminate { width: 40%; animation: slide 1.2s ease-in-out infinite; }
     @keyframes slide { 0%{margin-left:0%} 50%{margin-left:60%} 100%{margin-left:0%} }
+    .source-stats { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+    .source-row {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; color: #475569;
+    }
+    .source-row .src-name { display: flex; align-items: center; gap: 5px; }
+    .source-dot { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+    .source-dot.err { background: #f43f5e; }
+    .source-count { color: #64748b; font-variant-numeric: tabular-nums; }
 
     /* Add rows + lists */
     .add-row { display: flex; gap: 8px; }
@@ -246,27 +233,6 @@
         <span class="slider"></span>
       </label>
     </div>
-    <div class="toggle-row">
-      <div class="toggle-label">
-        <strong>On-Device Image Scan</strong>
-        <span>AI checks page images — only runs on suspect pages</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="imageScanToggle" />
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="sensitivity" id="sensitivityWrap">
-      <div class="sensitivity-head">
-        <span>Scan sensitivity</span>
-        <span class="sensitivity-val" id="sensVal">Balanced</span>
-      </div>
-      <input type="range" id="sensSlider" min="0" max="100" step="5" value="50" />
-      <div class="sensitivity-ticks">
-        <span>Lenient</span><span>Balanced</span><span>Strict</span>
-      </div>
-    </div>
   </div>
 
   <!-- Community blocklist -->
@@ -280,6 +246,7 @@
       <button class="sync-btn" id="syncBtn"><span class="spin">↻</span> Sync Now</button>
     </div>
     <div class="sync-progress"><div class="sync-progress-bar" id="syncBar"></div></div>
+    <div class="source-stats" id="sourceStats"></div>
   </div>
 
   <!-- Custom sites -->

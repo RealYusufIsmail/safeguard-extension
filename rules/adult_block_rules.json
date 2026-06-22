@@ -28,5 +28,21 @@
   { "id": 27, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||porntrex.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
   { "id": 28, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||hdporn.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
   { "id": 29, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||porndig.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
-  { "id": 30, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||iceporn.com^", "resourceTypes": ["main_frame", "sub_frame"] } }
+  { "id": 30, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||iceporn.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 31, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||nhentai.net^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 32, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||nhentai.to^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 33, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||hentaifox.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 34, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||hentairead.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 35, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||hentai2read.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 36, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||hanime.tv^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 37, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||fakku.net^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 38, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||imhentai.xxx^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 39, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||9hentai.to^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 40, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||luscious.net^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 41, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||chaturbate.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 42, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||cam4.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 43, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||myfreecams.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 44, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||stripchat.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 45, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||onlyfans.com^", "resourceTypes": ["main_frame", "sub_frame"] } },
+  { "id": 46, "priority": 1, "action": { "type": "block" }, "condition": { "urlFilter": "||fansly.com^", "resourceTypes": ["main_frame", "sub_frame"] } }
 ]

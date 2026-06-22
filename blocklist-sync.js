@@ -1,15 +1,69 @@
 'use strict';
 
-// Steven Black's unified porn hosts file — plain-text, no auth required.
-// Format: "0.0.0.0 domain.com" lines (with # comment lines).
-const BLOCKLIST_URL =
-  'https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts';
+// ── Blocklist sources ─────────────────────────────────────────────────────────
+// Multiple independent sources are fetched in parallel and merged.
+// Different teams curate each list, so gaps in one are covered by another.
 
-const STORAGE_KEY     = 'remoteBlocklist';
-const LAST_SYNC_KEY   = 'blocklistLastSync';
+const SOURCES = [
+  {
+    name: 'StevenBlack',
+    url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts',
+    // Format: "0.0.0.0 domain.com"  (with # comment lines)
+    parse(text) {
+      const domains = [];
+      for (const line of text.split('\n')) {
+        const t = line.trim();
+        if (!t || t.startsWith('#') || !t.startsWith('0.0.0.0 ')) continue;
+        const d = t.slice(8).trim().toLowerCase();
+        if (d && d !== '0.0.0.0' && !d.includes(' ') && d.includes('.')) {
+          domains.push(d.replace(/^www\./, ''));
+        }
+      }
+      return domains;
+    },
+  },
+  {
+    name: 'OISD-NSFW',
+    url: 'https://nsfw.oisd.nl/domainswild',
+    // Format: "*.domain.com" or "domain.com"  (plain list, may have wildcards)
+    parse(text) {
+      const domains = [];
+      for (const line of text.split('\n')) {
+        const t = line.trim().toLowerCase()
+          .replace(/^\*\./, '')   // strip wildcard prefix
+          .replace(/^www\./, '');
+        if (!t || t.startsWith('#') || t.startsWith('!') || !t.includes('.')) continue;
+        if (t.includes(' ') || t.includes('/')) continue; // skip non-domain lines
+        domains.push(t);
+      }
+      return domains;
+    },
+  },
+  {
+    name: 'Hagezi-NSFW',
+    url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/porn.txt',
+    // Format: "0.0.0.0 domain.com" — similar to Steven Black
+    parse(text) {
+      const domains = [];
+      for (const line of text.split('\n')) {
+        const t = line.trim();
+        if (!t || t.startsWith('#') || !t.startsWith('0.0.0.0 ')) continue;
+        const d = t.slice(8).trim().toLowerCase();
+        if (d && d !== '0.0.0.0' && !d.includes(' ') && d.includes('.')) {
+          domains.push(d.replace(/^www\./, ''));
+        }
+      }
+      return domains;
+    },
+  },
+];
+
+const STORAGE_KEY      = 'remoteBlocklist';
+const LAST_SYNC_KEY    = 'blocklistLastSync';
 const DOMAIN_COUNT_KEY = 'blocklistDomainCount';
-const MAX_DOMAINS     = 12000;
-const ALARM_NAME      = 'safeguard-blocklist-sync';
+const SOURCE_STATS_KEY = 'blocklistSourceStats';
+const MAX_DOMAINS      = 30000;   // larger cap — merged list is worth more entries
+const ALARM_NAME       = 'safeguard-blocklist-sync';
 const SYNC_INTERVAL_MINUTES = 1440; // 24 h
 
 // In-memory cache — rebuilt when the service worker starts.
@@ -29,48 +83,79 @@ async function isRemoteBlocked(hostname) {
   return set.has(clean);
 }
 
-// Fetches and parses the hosts file, storing the result in local storage.
-async function syncBlocklist() {
+// Fetches a single source with a timeout; returns [] on failure.
+async function _fetchSource(source) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000); // 20 s timeout
   try {
-    const resp = await fetch(BLOCKLIST_URL, { cache: 'no-store' });
+    const resp = await fetch(source.url, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
-
-    const domains = [];
-    for (const line of text.split('\n')) {
-      if (domains.length >= MAX_DOMAINS) break;
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      if (!trimmed.startsWith('0.0.0.0 ')) continue;
-      const domain = trimmed.slice(8).trim().toLowerCase();
-      // Skip the loopback placeholder and obviously invalid entries
-      if (!domain || domain === '0.0.0.0' || domain.includes(' ') || !domain.includes('.')) continue;
-      domains.push(domain.replace(/^www\./, ''));
-    }
-
-    _blocklistSet = new Set(domains);
-
-    await chrome.storage.local.set({
-      [STORAGE_KEY]: domains,
-      [LAST_SYNC_KEY]: Date.now(),
-      [DOMAIN_COUNT_KEY]: domains.length,
-    });
-
-    return { ok: true, count: domains.length };
+    const domains = source.parse(text);
+    console.info(`[SafeGuard] ${source.name}: ${domains.length} domains`);
+    return { name: source.name, domains, error: null };
   } catch (err) {
-    return { ok: false, error: err.message };
+    console.warn(`[SafeGuard] ${source.name} failed:`, err.message);
+    return { name: source.name, domains: [], error: err.message };
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+// Fetches all sources in parallel, merges, deduplicates, and stores.
+async function syncBlocklist() {
+  const results = await Promise.all(SOURCES.map(_fetchSource));
+
+  // Merge all sources into one deduplicated set
+  const merged = new Set();
+  const sourceStats = {};
+  for (const { name, domains } of results) {
+    sourceStats[name] = domains.length;
+    for (const d of domains) {
+      if (merged.size >= MAX_DOMAINS) break;
+      merged.add(d);
+    }
+  }
+
+  // Bail if every source failed
+  const totalNew = merged.size;
+  if (totalNew === 0) {
+    return { ok: false, error: 'All sources returned 0 domains — check network.' };
+  }
+
+  const domainArray = Array.from(merged);
+  _blocklistSet = merged;
+
+  await chrome.storage.local.set({
+    [STORAGE_KEY]:      domainArray,
+    [LAST_SYNC_KEY]:    Date.now(),
+    [DOMAIN_COUNT_KEY]: totalNew,
+    [SOURCE_STATS_KEY]: sourceStats,
+  });
+
+  const errors = results.filter(r => r.error).map(r => `${r.name}: ${r.error}`);
+  return {
+    ok: true,
+    count: totalNew,
+    sourceStats,
+    ...(errors.length ? { warnings: errors } : {}),
+  };
 }
 
 // Returns last sync metadata for the popup.
 async function getBlocklistMeta() {
   const result = await chrome.storage.local.get({
-    [LAST_SYNC_KEY]: null,
+    [LAST_SYNC_KEY]:    null,
     [DOMAIN_COUNT_KEY]: 0,
+    [SOURCE_STATS_KEY]: {},
   });
   return {
-    lastSync: result[LAST_SYNC_KEY],
+    lastSync:    result[LAST_SYNC_KEY],
     domainCount: result[DOMAIN_COUNT_KEY],
+    sourceStats: result[SOURCE_STATS_KEY],
   };
 }
 

@@ -4,10 +4,6 @@ const $ = (id) => document.getElementById(id);
 
 const adultToggle      = $('adultToggle');
 const classifierToggle = $('classifierToggle');
-const imageScanToggle  = $('imageScanToggle');
-const sensSlider       = $('sensSlider');
-const sensVal          = $('sensVal');
-const sensitivityWrap  = $('sensitivityWrap');
 const siteInput        = $('siteInput');
 const addBtn           = $('addBtn');
 const siteList         = $('siteList');
@@ -51,20 +47,6 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
 }
 function formatCount(n) { return !n ? '—' : (n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n)); }
-function sensitivityLabel(v) {
-  if (v <= 20) return 'Lenient';
-  if (v <= 40) return 'Relaxed';
-  if (v <= 60) return 'Balanced';
-  if (v <= 80) return 'Strict';
-  return 'Very strict';
-}
-function updateSensitivityUI(active) {
-  // Slider is usable only when image scan is on and Focus Mode isn't locking it.
-  sensitivityWrap.classList.toggle('disabled', !imageScanToggle.checked || active);
-  sensSlider.disabled = !imageScanToggle.checked || active;
-  sensVal.textContent = sensitivityLabel(parseInt(sensSlider.value, 10));
-}
-
 // ── Settings access ───────────────────────────────────────────────────────────
 
 function getSettings() {
@@ -73,8 +55,6 @@ function getSettings() {
     blockedKeywords:    [],
     adultBlockEnabled:  true,
     classifierEnabled:  true,
-    imageScanEnabled:   true,
-    imageScanSensitivity: 50,
     focusUntil:         0,
   });
 }
@@ -104,13 +84,11 @@ function renderFocus(s) {
   // Lock the off-switches and removal controls while focusing
   adultToggle.disabled = active;
   classifierToggle.disabled = active;
-  imageScanToggle.disabled = active;
   siteInput.disabled = active;
   addBtn.disabled = active;
   kwInput.disabled = active;
   kwAddBtn.disabled = active;
   document.querySelectorAll('.list-item-remove').forEach((b) => (b.disabled = active));
-  updateSensitivityUI(active);
 
   if (focusTimer) { clearInterval(focusTimer); focusTimer = null; }
   if (active) {
@@ -149,6 +127,20 @@ async function refreshBlocklistMeta() {
   const meta = await chrome.runtime.sendMessage({ type: 'GET_BLOCKLIST_META' });
   domainCountEl.innerHTML = formatCount(meta.domainCount) + '<span>domains</span>';
   lastSyncEl.textContent  = formatDate(meta.lastSync);
+
+  const statsEl = $('sourceStats');
+  if (!statsEl) return;
+  const stats = meta.sourceStats || {};
+  const names = Object.keys(stats);
+  if (!names.length) { statsEl.innerHTML = ''; return; }
+  statsEl.innerHTML = names.map(name => {
+    const count = stats[name];
+    const ok = count > 0;
+    return `<div class="source-row">
+      <span class="src-name"><span class="source-dot${ok ? '' : ' err'}"></span>${name}</span>
+      <span class="source-count">${ok ? formatCount(count) : 'failed'}</span>
+    </div>`;
+  }).join('');
 }
 function setSyncing(active) {
   syncBtn.disabled = active;
@@ -191,8 +183,6 @@ async function reload() {
   const s = await getSettings();
   adultToggle.checked = s.adultBlockEnabled;
   classifierToggle.checked = s.classifierEnabled;
-  imageScanToggle.checked = s.imageScanEnabled;
-  sensSlider.value = s.imageScanSensitivity;
   renderList(siteList, s.customBlockedSites, 'No custom sites blocked yet.');
   renderList(kwList, s.blockedKeywords, 'No keywords blocked yet.');
   renderFocus(s);                    // applies locks after lists render
@@ -214,22 +204,6 @@ classifierToggle.addEventListener('change', async () => {
   await saveSettings({ classifierEnabled: classifierToggle.checked });
   setStatus(classifierToggle.checked ? 'Classifier on' : 'Classifier off', 'success');
 });
-imageScanToggle.addEventListener('change', async () => {
-  await saveSettings({ imageScanEnabled: imageScanToggle.checked });
-  updateSensitivityUI(false);
-  setStatus(imageScanToggle.checked ? 'Image scan on' : 'Image scan off', 'success');
-});
-
-// Live label while dragging; persist when released.
-sensSlider.addEventListener('input', () => {
-  sensVal.textContent = sensitivityLabel(parseInt(sensSlider.value, 10));
-});
-sensSlider.addEventListener('change', async () => {
-  const v = parseInt(sensSlider.value, 10);
-  await chrome.storage.sync.set({ imageScanSensitivity: v });
-  setStatus(`Image scan sensitivity: ${sensitivityLabel(v)}`, 'success');
-});
-
 // ── Custom sites ─────────────────────────────────────────────────────────────────
 
 addBtn.addEventListener('click', async () => {
