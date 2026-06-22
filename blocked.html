@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blocked | SafeGuard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --accent: #f43f5e;
+      --accent-soft: rgba(244, 63, 94, 0.12);
+      --bg-0: #0b1120;
+      --bg-1: #0f172a;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      background: radial-gradient(1200px 600px at 50% -10%, #1e293b 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text);
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    /* soft ambient glow behind the card */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 50%; left: 50%;
+      width: 520px; height: 520px;
+      transform: translate(-50%, -55%);
+      background: radial-gradient(circle, rgba(244,63,94,0.18) 0%, transparent 60%);
+      filter: blur(20px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 24px;
+      padding: 44px 48px 36px;
+      text-align: center;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+      animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .shield-wrap {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      animation: pulse 2.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.0); }
+      50%      { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0.04); }
+    }
+
+    .shield-wrap svg { width: 44px; height: 44px; display: block; }
+
+    .reason-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 18px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: var(--accent);
+    }
+    .reason-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor;
+    }
+    .reason-badge.reason-custom {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #f59e0b;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+      color: #f8fafc;
+    }
+
+    .site-name {
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+      color: #cbd5e1;
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 10px;
+      padding: 9px 16px;
+      display: inline-block;
+      margin-bottom: 18px;
+      max-width: 100%;
+      word-break: break-all;
+    }
+
+    p.desc {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .block-stat {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 26px;
+      min-height: 16px;
+    }
+    .block-stat b { color: var(--accent); font-weight: 700; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .btn {
+      flex: 1;
+      max-width: 160px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+      transition: transform 0.12s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-back {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 8px 20px rgba(244, 63, 94, 0.3);
+    }
+    .btn-back:hover { background: #fb5a73; }
+    .btn-home {
+      background: rgba(148, 163, 184, 0.08);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+    .btn-home:hover { background: rgba(148, 163, 184, 0.14); }
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(148, 163, 184, 0.08);
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .footer svg { width: 13px; height: 13px; opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="shield-wrap">
+      <!-- shield + slash icon -->
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2.5 4.5 5.5v6c0 4.2 3.1 7.6 7.5 9 4.4-1.4 7.5-4.8 7.5-9v-6L12 2.5Z"
+              stroke="#f43f5e" stroke-width="1.6" stroke-linejoin="round" fill="rgba(244,63,94,0.12)"/>
+        <path d="M9 9l6 6M15 9l-6 6" stroke="#f43f5e" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="reason-badge" id="reasonBadge"><span class="dot"></span><span id="reasonText"></span></div>
+
+    <h1>Access Blocked</h1>
+    <div class="site-name" id="siteName">this site</div>
+    <p class="desc">This page was blocked by SafeGuard to help you stay focused and browse safely.</p>
+    <div class="block-stat" id="blockStat"></div>
+
+    <div class="actions">
+      <button class="btn btn-back" id="backBtn">← Go Back</button>
+      <a class="btn btn-home" href="chrome://newtab">New Tab</a>
+    </div>
+
+    <div class="footer">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5 4.5 5.5v6c0 4.2 3.1 7.6 7.5 9 4.4-1.4 7.5-4.8 7.5-9v-6L12 2.5Z" stroke="#64748b" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      SafeGuard Content Blocker
+    </div>
+  </div>
+
+  <script src="blocked.js"></script>
+</body>
+</html>

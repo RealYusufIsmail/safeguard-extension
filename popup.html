@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SafeGuard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 344px;
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 14px;
+    }
+    body::-webkit-scrollbar { width: 6px; }
+    body::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 6px; }
+
+    .header {
+      position: sticky; top: 0; z-index: 5;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-icon { font-size: 26px; }
+    .header-text h1 { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .header-text p  { font-size: 11px; color: #64748b; margin-top: 1px; }
+
+    .section { padding: 14px 16px; border-bottom: 1px solid #1e293b; }
+    .section:last-child { border-bottom: none; }
+
+    .section-title {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.6px; color: #475569; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* Stats */
+    .stats { display: flex; gap: 10px; }
+    .stat-card {
+      flex: 1; background: #1e293b; border-radius: 12px; padding: 12px 14px;
+      border: 1px solid #243049;
+    }
+    .stat-card .num { font-size: 24px; font-weight: 700; color: #f8fafc; line-height: 1; }
+    .stat-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-top: 5px; }
+    .stat-card.accent .num { color: #f43f5e; }
+
+    /* Toggles */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-row + .toggle-row { margin-top: 14px; }
+    .toggle-label { display: flex; flex-direction: column; gap: 2px; padding-right: 10px; }
+    .toggle-label strong { font-size: 13px; color: #f1f5f9; }
+    .toggle-label span   { font-size: 11px; color: #64748b; }
+    .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: #334155;
+      border-radius: 24px; cursor: pointer; transition: background 0.2s;
+    }
+    .slider::before {
+      content: ""; position: absolute; width: 18px; height: 18px;
+      left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform 0.2s;
+    }
+    input:checked + .slider { background: #f43f5e; }
+    input:checked + .slider::before { transform: translateX(20px); }
+    input:disabled + .slider { opacity: 0.45; cursor: not-allowed; }
+
+    /* Sensitivity slider */
+    .sensitivity { margin-top: 14px; transition: opacity 0.2s; }
+    .sensitivity.disabled { opacity: 0.4; pointer-events: none; }
+    .sensitivity-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: #94a3b8; margin-bottom: 8px;
+    }
+    .sensitivity-val { font-weight: 600; color: #f43f5e; }
+    .sensitivity input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+      border-radius: 5px; background: #334155; outline: none; cursor: pointer;
+    }
+    .sensitivity input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+      border-radius: 50%; background: #f43f5e; border: 2px solid #0f172a;
+      box-shadow: 0 0 0 1px #f43f5e; cursor: pointer;
+    }
+    .sensitivity-ticks {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: #475569; margin-top: 6px;
+    }
+
+    /* Focus mode */
+    .focus-section { background: rgba(244,63,94,0.04); }
+    .focus-active-banner {
+      display: none;
+      background: rgba(244,63,94,0.1);
+      border: 1px solid rgba(244,63,94,0.3);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .focus-active-banner.show { display: block; }
+    .focus-active-banner .row { display: flex; align-items: center; justify-content: space-between; }
+    .focus-active-banner .label { font-size: 11px; color: #fca5b5; text-transform: uppercase; letter-spacing: 0.5px; }
+    .focus-countdown { font-size: 26px; font-weight: 700; color: #f43f5e; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .focus-lock-note { font-size: 11px; color: #64748b; margin-top: 8px; display: flex; align-items: center; gap: 5px; }
+
+    .focus-durations { display: flex; gap: 8px; }
+    .focus-btn {
+      flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 9px;
+      color: #cbd5e1; font-size: 13px; font-weight: 600; padding: 9px 0; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .focus-btn:hover { border-color: #f43f5e; background: #243049; }
+
+    /* Sync */
+    .sync-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .sync-meta { display: flex; flex-direction: column; gap: 3px; }
+    .sync-meta .count { font-size: 18px; font-weight: 700; color: #f1f5f9; line-height: 1; }
+    .sync-meta .count span { font-size: 11px; font-weight: 400; color: #64748b; margin-left: 4px; }
+    .sync-meta .last-sync { font-size: 11px; color: #64748b; }
+    .sync-btn {
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #94a3b8;
+      font-size: 12px; padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;
+      transition: border-color 0.15s, color 0.15s; white-space: nowrap;
+    }
+    .sync-btn:hover { border-color: #f43f5e; color: #f1f5f9; }
+    .sync-btn:disabled { opacity: 0.4; cursor: default; }
+    .sync-btn.syncing .spin { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sync-progress { height: 3px; background: #1e293b; border-radius: 2px; overflow: hidden; }
+    .sync-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f43f5e, #f97316); border-radius: 2px; transition: width 0.4s; }
+    .sync-progress-bar.indeterminate { width: 40%; animation: slide 1.2s ease-in-out infinite; }
+    @keyframes slide { 0%{margin-left:0%} 50%{margin-left:60%} 100%{margin-left:0%} }
+
+    /* Add rows + lists */
+    .add-row { display: flex; gap: 8px; }
+    .add-row input {
+      flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 8px 10px; color: #e2e8f0; font-size: 13px; outline: none; transition: border-color 0.15s;
+    }
+    .add-row input:focus { border-color: #f43f5e; }
+    .add-row input::placeholder { color: #475569; }
+    .add-row input:disabled { opacity: 0.5; }
+    .add-row button {
+      background: #f43f5e; border: none; border-radius: 8px; color: white; font-size: 18px;
+      width: 36px; cursor: pointer; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .add-row button:hover { opacity: 0.85; }
+    .add-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .item-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; }
+    .item-list::-webkit-scrollbar { width: 4px; }
+    .item-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .list-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #1e293b; border-radius: 8px; padding: 8px 10px; gap: 8px;
+    }
+    .list-item-name { font-size: 13px; color: #94a3b8; word-break: break-all; flex: 1; }
+    .list-item-remove {
+      background: none; border: none; color: #475569; cursor: pointer; font-size: 16px;
+      padding: 0 2px; line-height: 1; transition: color 0.15s; flex-shrink: 0;
+    }
+    .list-item-remove:hover { color: #f43f5e; }
+    .list-item-remove:disabled { opacity: 0.3; cursor: not-allowed; }
+    .empty-state { text-align: center; padding: 14px 0 2px; color: #475569; font-size: 12px; }
+
+    .lock-pill {
+      font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      color: #f43f5e; background: rgba(244,63,94,0.12); border: 1px solid rgba(244,63,94,0.3);
+      border-radius: 999px; padding: 2px 7px; display: none; align-items: center; gap: 4px;
+    }
+    .lock-pill.show { display: inline-flex; }
+
+    .status-bar {
+      position: sticky; bottom: 0;
+      padding: 10px 16px; background: #0a1628; font-size: 11px; color: #475569;
+      min-height: 32px; display: flex; align-items: center; gap: 6px; border-top: 1px solid #1e293b;
+    }
+    .status-bar.success { color: #22c55e; }
+    .status-bar.error   { color: #f43f5e; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-icon">🛡️</span>
+    <div class="header-text">
+      <h1>SafeGuard</h1>
+      <p>Content &amp; Site Blocker</p>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="section">
+    <div class="stats">
+      <div class="stat-card accent">
+        <div class="num" id="statToday">0</div>
+        <div class="lbl">Blocked Today</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="statTotal">0</div>
+        <div class="lbl">All Time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Focus Mode -->
+  <div class="section focus-section">
+    <div class="section-title">Focus Mode</div>
+    <div class="focus-active-banner" id="focusBanner">
+      <div class="row">
+        <span class="label">Locked &amp; focusing</span>
+      </div>
+      <div class="focus-countdown" id="focusCountdown">00:00</div>
+      <div class="focus-lock-note">🔒 Protection can't be turned off until the timer ends.</div>
+    </div>
+    <div id="focusStart">
+      <div class="focus-durations">
+        <button class="focus-btn" data-min="30">30 min</button>
+        <button class="focus-btn" data-min="60">1 hour</button>
+        <button class="focus-btn" data-min="120">2 hours</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Adult + classifier toggles -->
+  <div class="section">
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <strong>Block Adult Content</strong>
+        <span>Known sites + community list + classifier</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="adultToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <strong>Smart URL Classifier</strong>
+        <span>Catches unknown adult sites by pattern</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="classifierToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <strong>On-Device Image Scan</strong>
+        <span>AI checks page images — only runs on suspect pages</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="imageScanToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="sensitivity" id="sensitivityWrap">
+      <div class="sensitivity-head">
+        <span>Scan sensitivity</span>
+        <span class="sensitivity-val" id="sensVal">Balanced</span>
+      </div>
+      <input type="range" id="sensSlider" min="0" max="100" step="5" value="50" />
+      <div class="sensitivity-ticks">
+        <span>Lenient</span><span>Balanced</span><span>Strict</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Community blocklist -->
+  <div class="section">
+    <div class="section-title">Community Blocklist</div>
+    <div class="sync-row">
+      <div class="sync-meta">
+        <div class="count" id="domainCount">—<span>domains</span></div>
+        <div class="last-sync" id="lastSync">Never synced</div>
+      </div>
+      <button class="sync-btn" id="syncBtn"><span class="spin">↻</span> Sync Now</button>
+    </div>
+    <div class="sync-progress"><div class="sync-progress-bar" id="syncBar"></div></div>
+  </div>
+
+  <!-- Custom sites -->
+  <div class="section">
+    <div class="section-title">
+      Custom Blocked Sites
+      <span class="lock-pill" id="sitesLock">🔒 Locked</span>
+    </div>
+    <div class="add-row">
+      <input type="text" id="siteInput" placeholder="e.g. x.com or reddit.com" />
+      <button id="addBtn" title="Add site">+</button>
+    </div>
+    <div class="item-list" id="siteList"></div>
+  </div>
+
+  <!-- Keywords -->
+  <div class="section">
+    <div class="section-title">
+      Blocked Keywords
+      <span class="lock-pill" id="kwLock">🔒 Locked</span>
+    </div>
+    <div class="add-row">
+      <input type="text" id="kwInput" placeholder="e.g. casino, betting, tiktok" />
+      <button id="kwAddBtn" title="Add keyword">+</button>
+    </div>
+    <div class="item-list" id="kwList"></div>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    <span class="status-dot"></span>
+    <span id="statusText">Loading…</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
