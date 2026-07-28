@@ -15,13 +15,10 @@ A Chrome extension that blocks adult content and custom websites using multiple 
 
 ### Popup controls
 
-- **Block Adult Content** — master toggle for all adult-content detection
-- **Smart URL Classifier** — on/off switch for the TF-IDF URL scorer
-- **On-Device Image Scan** — on/off switch for the NSFWJS model
-- **Scan sensitivity slider** — tune from *Lenient* to *Very strict*
-- **Focus Mode** — 30 min / 1 h / 2 h lock that disables all off-switches so you can't bypass blocks mid-session
+- **Maximum protection** — adult blocklists, URL classification, and image detection are always on
+- **Focus Mode** — 30 min / 1 h / 2 h lock for removable keyword rules
 - **Community Blocklist** — shows domain count + last sync time; Sync Now button
-- **Custom Blocked Sites** — add/remove domains
+- **Custom Blocked Sites** — confirm and permanently block domains with no unblock control
 - **Blocked Keywords** — add/remove keyword strings
 - **Stats** — *Blocked Today* and *All Time* counters; badge on the toolbar icon
 

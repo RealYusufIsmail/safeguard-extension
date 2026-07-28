@@ -12,16 +12,6 @@
   // Skip extension pages, blank tabs, and non-http(s) schemes.
   if (!/^https?:$/.test(location.protocol)) return;
 
-  let settings;
-  try {
-    settings = await chrome.storage.sync.get({
-      adultBlockEnabled: true,
-      imageScanEnabled:  true,
-    });
-  } catch { return; }
-
-  if (!settings.adultBlockEnabled || !settings.imageScanEnabled) return;
-
   function evaluateGate() {
     // 1. URL classifier — gray zone (suspicious but under the hard-block bar).
     let urlScore = 0;

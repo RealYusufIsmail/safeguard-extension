@@ -2,8 +2,6 @@
 
 const $ = (id) => document.getElementById(id);
 
-const adultToggle      = $('adultToggle');
-const classifierToggle = $('classifierToggle');
 const siteInput        = $('siteInput');
 const addBtn           = $('addBtn');
 const siteList         = $('siteList');
@@ -21,10 +19,14 @@ const statTotalEl      = $('statTotal');
 const focusBanner      = $('focusBanner');
 const focusStart       = $('focusStart');
 const focusCountdown   = $('focusCountdown');
-const sitesLock        = $('sitesLock');
 const kwLock           = $('kwLock');
+const confirmDialog    = $('confirmDialog');
+const confirmSite      = $('confirmSite');
+const confirmCancel    = $('confirmCancel');
+const confirmBlock     = $('confirmBlock');
 
 let focusTimer = null;
+let pendingSite = null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,7 +38,15 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 function normalizeDomain(s) {
-  return s.trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/$/,'').replace(/^www\./,'');
+  const value = s.trim();
+  if (!value || /\s/.test(value)) return null;
+  try {
+    const url = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(value) ? value : `https://${value}`);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    return url.hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
 }
 function formatDate(ts) {
   if (!ts) return 'Never synced';
@@ -52,9 +62,8 @@ function formatCount(n) { return !n ? '—' : (n >= 1000 ? (n/1000).toFixed(1)+'
 function getSettings() {
   return chrome.storage.sync.get({
     customBlockedSites: [],
+    permanentBlockedSites: [],
     blockedKeywords:    [],
-    adultBlockEnabled:  true,
-    classifierEnabled:  true,
     focusUntil:         0,
   });
 }
@@ -78,17 +87,11 @@ function renderFocus(s) {
   const active = focusActive(s);
   focusBanner.classList.toggle('show', active);
   focusStart.style.display = active ? 'none' : 'block';
-  sitesLock.classList.toggle('show', active);
   kwLock.classList.toggle('show', active);
 
-  // Lock the off-switches and removal controls while focusing
-  adultToggle.disabled = active;
-  classifierToggle.disabled = active;
-  siteInput.disabled = active;
-  addBtn.disabled = active;
-  kwInput.disabled = active;
-  kwAddBtn.disabled = active;
-  document.querySelectorAll('.list-item-remove').forEach((b) => (b.disabled = active));
+  // New safeguards can always be added. Existing keywords cannot be removed
+  // during a focus session; permanent sites never have a removal control.
+  kwList.querySelectorAll('.list-item-remove').forEach((b) => (b.disabled = active));
 
   if (focusTimer) { clearInterval(focusTimer); focusTimer = null; }
   if (active) {
@@ -113,8 +116,7 @@ document.querySelectorAll('.focus-btn').forEach((btn) => {
     const mins = parseInt(btn.dataset.min, 10);
     const s = await getSettings();
     const until = Date.now() + mins * 60000;
-    // Force-enable adult protection when a focus session starts
-    await chrome.storage.sync.set({ focusUntil: until, adultBlockEnabled: true });
+    await chrome.storage.sync.set({ focusUntil: until });
     await chrome.runtime.sendMessage({ type: 'REBUILD_RULES' });
     setStatus(`Focus mode on for ${mins} min — stay strong 💪`, 'success');
     reload();
@@ -165,14 +167,19 @@ syncBtn.addEventListener('click', async () => {
 
 // ── List rendering ───────────────────────────────────────────────────────────
 
-function renderList(el, items, emptyMsg) {
+function renderList(el, items, emptyMsg, removable = true) {
   el.innerHTML = '';
   if (!items.length) { el.innerHTML = `<div class="empty-state">${emptyMsg}</div>`; return; }
   items.forEach((val, i) => {
     const row = document.createElement('div');
     row.className = 'list-item';
-    row.innerHTML = `<span class="list-item-name">${escapeHtml(val)}</span>
-      <button class="list-item-remove" data-index="${i}" title="Remove">✕</button>`;
+    const action = removable
+      ? `<button class="list-item-remove" data-index="${i}" title="Remove">✕</button>`
+      : `<svg class="list-item-lock" viewBox="0 0 24 24" fill="none" aria-label="Permanent">
+          <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"/>
+        </svg>`;
+    row.innerHTML = `<span class="list-item-name">${escapeHtml(val)}</span>${action}`;
     el.appendChild(row);
   });
 }
@@ -181,51 +188,61 @@ function renderList(el, items, emptyMsg) {
 
 async function reload() {
   const s = await getSettings();
-  adultToggle.checked = s.adultBlockEnabled;
-  classifierToggle.checked = s.classifierEnabled;
-  renderList(siteList, s.customBlockedSites, 'No custom sites blocked yet.');
+  const permanentSites = [...new Set([...s.customBlockedSites, ...s.permanentBlockedSites])];
+  renderList(siteList, permanentSites, 'No custom sites blocked yet.', false);
   renderList(kwList, s.blockedKeywords, 'No keywords blocked yet.');
   renderFocus(s);                    // applies locks after lists render
   await refreshStats();
   await refreshBlocklistMeta();
   if (!focusActive(s)) {
-    const c = s.customBlockedSites.length;
+    const c = permanentSites.length;
     setStatus(`Active — ${c} site${c !== 1 ? 's' : ''}, ${s.blockedKeywords.length} keyword${s.blockedKeywords.length !== 1 ? 's' : ''}`, 'success');
   }
 }
 
-// ── Toggle handlers ─────────────────────────────────────────────────────────────
-
-adultToggle.addEventListener('change', async () => {
-  await saveSettings({ adultBlockEnabled: adultToggle.checked });
-  setStatus(adultToggle.checked ? 'Adult blocking on' : 'Adult blocking off', 'success');
-});
-classifierToggle.addEventListener('change', async () => {
-  await saveSettings({ classifierEnabled: classifierToggle.checked });
-  setStatus(classifierToggle.checked ? 'Classifier on' : 'Classifier off', 'success');
-});
 // ── Custom sites ─────────────────────────────────────────────────────────────────
 
-addBtn.addEventListener('click', async () => {
+addBtn.addEventListener('click', () => {
   const domain = normalizeDomain(siteInput.value);
+  if (!domain) {
+    setStatus('Enter a valid website, such as example.com.', 'error');
+    return;
+  }
+  pendingSite = domain;
+  confirmSite.textContent = domain;
+  confirmDialog.showModal();
+});
+
+confirmCancel.addEventListener('click', () => {
+  pendingSite = null;
+  confirmDialog.close();
+  siteInput.focus();
+});
+
+confirmDialog.addEventListener('cancel', () => {
+  pendingSite = null;
+});
+
+confirmBlock.addEventListener('click', async () => {
+  const domain = pendingSite;
   if (!domain) return;
   const s = await getSettings();
-  if (s.customBlockedSites.includes(domain)) { setStatus('Already in the list.', 'error'); return; }
-  const sites = [...s.customBlockedSites, domain];
+  const existing = new Set([...s.customBlockedSites, ...s.permanentBlockedSites]);
+  if (existing.has(domain)) {
+    pendingSite = null;
+    confirmDialog.close();
+    setStatus('That website is already permanently blocked.', 'error');
+    return;
+  }
+  const sites = [...s.permanentBlockedSites, domain];
   siteInput.value = '';
-  await saveSettings({ customBlockedSites: sites });
-  reload();
+  pendingSite = null;
+  confirmDialog.close();
+  await saveSettings({ permanentBlockedSites: sites });
+  await reload();
+  setStatus(`${domain} is now permanently blocked.`, 'success');
 });
 siteInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
-siteList.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.list-item-remove');
-  if (!btn || btn.disabled) return;
-  const s = await getSettings();
-  const sites = [...s.customBlockedSites];
-  sites.splice(parseInt(btn.dataset.index, 10), 1);
-  await saveSettings({ customBlockedSites: sites });
-  reload();
-});
 
 // ── Keywords ─────────────────────────────────────────────────────────────────────
 

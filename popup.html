@@ -49,25 +49,21 @@
     .stat-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-top: 5px; }
     .stat-card.accent .num { color: #f43f5e; }
 
-    /* Toggles */
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-    .toggle-row + .toggle-row { margin-top: 14px; }
-    .toggle-label { display: flex; flex-direction: column; gap: 2px; padding-right: 10px; }
-    .toggle-label strong { font-size: 13px; color: #f1f5f9; }
-    .toggle-label span   { font-size: 11px; color: #64748b; }
-    .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; inset: 0; background: #334155;
-      border-radius: 24px; cursor: pointer; transition: background 0.2s;
+    /* Always-on protection */
+    .protection-row { display: flex; align-items: center; gap: 12px; }
+    .protection-mark {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+      display: grid; place-items: center; color: #fb7185;
+      background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.24);
     }
-    .slider::before {
-      content: ""; position: absolute; width: 18px; height: 18px;
-      left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform 0.2s;
+    .protection-mark svg { width: 18px; height: 18px; }
+    .protection-copy { flex: 1; }
+    .protection-copy strong { display: block; font-size: 13px; color: #f1f5f9; }
+    .protection-copy span { display: block; font-size: 11px; color: #64748b; margin-top: 2px; line-height: 1.35; }
+    .always-on {
+      color: #fb7185; font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.55px; white-space: nowrap;
     }
-    input:checked + .slider { background: #f43f5e; }
-    input:checked + .slider::before { transform: translateX(20px); }
-    input:disabled + .slider { opacity: 0.45; cursor: not-allowed; }
 
     /* Focus mode */
     .focus-section { background: rgba(244,63,94,0.04); }
@@ -150,6 +146,7 @@
     }
     .list-item-remove:hover { color: #f43f5e; }
     .list-item-remove:disabled { opacity: 0.3; cursor: not-allowed; }
+    .list-item-lock { width: 16px; height: 16px; flex-shrink: 0; color: #64748b; }
     .empty-state { text-align: center; padding: 14px 0 2px; color: #475569; font-size: 12px; }
 
     .lock-pill {
@@ -158,6 +155,33 @@
       border-radius: 999px; padding: 2px 7px; display: none; align-items: center; gap: 4px;
     }
     .lock-pill.show { display: inline-flex; }
+
+    dialog {
+      width: 312px; max-width: calc(100% - 32px); margin: auto;
+      color: #e2e8f0; background: #111c30; border: 1px solid #334155;
+      border-radius: 14px; padding: 0; box-shadow: 0 24px 70px rgba(0,0,0,0.65);
+    }
+    dialog::backdrop { background: rgba(2,6,23,0.78); }
+    .confirm-body { padding: 18px; }
+    .confirm-eyebrow {
+      color: #fb7185; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.65px; margin-bottom: 7px;
+    }
+    .confirm-body h2 { color: #f8fafc; font-size: 17px; line-height: 1.25; }
+    .confirm-site {
+      display: block; margin: 12px 0; padding: 9px 10px; border-radius: 8px;
+      background: #0f172a; border: 1px solid #26344d; color: #cbd5e1;
+      font: 12px/1.4 'SF Mono', ui-monospace, Menlo, monospace; word-break: break-all;
+    }
+    .confirm-warning { color: #94a3b8; font-size: 12px; line-height: 1.45; }
+    .confirm-actions { display: flex; gap: 8px; padding: 12px 18px 18px; }
+    .confirm-actions button {
+      flex: 1; border-radius: 8px; padding: 9px 10px; font-size: 12px;
+      font-weight: 650; cursor: pointer;
+    }
+    .confirm-cancel { color: #cbd5e1; background: #1e293b; border: 1px solid #334155; }
+    .confirm-block { color: white; background: #e11d48; border: 1px solid #e11d48; }
+    .confirm-actions button:focus-visible { outline: 2px solid #fb7185; outline-offset: 2px; }
 
     .status-bar {
       position: sticky; bottom: 0;
@@ -211,27 +235,20 @@
     </div>
   </div>
 
-  <!-- Adult + classifier toggles -->
+  <!-- Permanent protection status -->
   <div class="section">
-    <div class="toggle-row">
-      <div class="toggle-label">
-        <strong>Block Adult Content</strong>
-        <span>Known sites + community list + classifier</span>
+    <div class="protection-row">
+      <div class="protection-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 3 5.5 5.6v5.2c0 3.8 2.7 7 6.5 8.3 3.8-1.3 6.5-4.5 6.5-8.3V5.6L12 3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+          <path d="m9.2 11.4 1.8 1.8 3.9-4.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="adultToggle" />
-        <span class="slider"></span>
-      </label>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-label">
-        <strong>Smart URL Classifier</strong>
-        <span>Catches unknown adult sites by pattern</span>
+      <div class="protection-copy">
+        <strong>Maximum protection</strong>
+        <span>Adult blocklists and smart detection are permanently active.</span>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="classifierToggle" />
-        <span class="slider"></span>
-      </label>
+      <span class="always-on">Always on</span>
     </div>
   </div>
 
@@ -253,7 +270,7 @@
   <div class="section">
     <div class="section-title">
       Custom Blocked Sites
-      <span class="lock-pill" id="sitesLock">🔒 Locked</span>
+      <span class="lock-pill show">Permanent</span>
     </div>
     <div class="add-row">
       <input type="text" id="siteInput" placeholder="e.g. x.com or reddit.com" />
@@ -279,6 +296,19 @@
     <span class="status-dot"></span>
     <span id="statusText">Loading…</span>
   </div>
+
+  <dialog id="confirmDialog" aria-labelledby="confirmTitle">
+    <div class="confirm-body">
+      <div class="confirm-eyebrow">Permanent block</div>
+      <h2 id="confirmTitle">Block this website forever?</h2>
+      <span class="confirm-site" id="confirmSite"></span>
+      <p class="confirm-warning">Once added, this website cannot be removed or unblocked from SafeGuard.</p>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" id="confirmCancel" type="button">Cancel</button>
+      <button class="confirm-block" id="confirmBlock" type="button">Block permanently</button>
+    </div>
+  </dialog>
 
   <script src="popup.js"></script>
 </body>
