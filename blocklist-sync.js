@@ -80,7 +80,11 @@ async function _loadSetFromStorage() {
 async function isRemoteBlocked(hostname) {
   const set = await _loadSetFromStorage();
   const clean = hostname.replace(/^www\./, '');
-  return set.has(clean);
+  const labels = clean.split('.');
+  for (let i = 0; i < labels.length - 1; i += 1) {
+    if (set.has(labels.slice(i).join('.'))) return true;
+  }
+  return false;
 }
 
 // Fetches a single source with a timeout; returns [] on failure.

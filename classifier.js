@@ -112,7 +112,7 @@ const SUBSTRING_TERMS = [
   'cumshot', 'creampie', 'gangbang', 'blowjob', 'handjob',
   'bdsm', 'bondage', 'incest', 'orgasm', 'fetish', 'erotic',
   'escort', 'camgirl', 'onlyfans', 'sexcam', 'nudecam',
-  'fap', 'wank', 'dildo', 'anal', 'pussy', 'cock',
+  'wank', 'dildo', 'pussy',
 ];
 
 // Returns { isAdult, score, confidence, matchedTokens }

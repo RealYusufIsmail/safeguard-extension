@@ -4,8 +4,6 @@ importScripts('classifier.js', 'blocklist-sync.js');
 
 let _customSitesCache   = null;   // string[] of domains from storage
 let _keywordsCache      = null;   // string[] of blocked keywords
-let _adultEnabledCache  = null;
-let _classifierCache    = null;
 
 async function getSetting(key, def) {
   const r = await chrome.storage.sync.get({ [key]: def });
@@ -15,13 +13,18 @@ async function getSetting(key, def) {
 function invalidateCaches() {
   _customSitesCache  = null;
   _keywordsCache     = null;
-  _adultEnabledCache = null;
-  _classifierCache   = null;
 }
 
 async function getCustomSites() {
   if (_customSitesCache !== null) return _customSitesCache;
-  _customSitesCache = await getSetting('customBlockedSites', []);
+  const settings = await chrome.storage.sync.get({
+    customBlockedSites: [],
+    permanentBlockedSites: [],
+  });
+  _customSitesCache = [...new Set([
+    ...settings.customBlockedSites,
+    ...settings.permanentBlockedSites,
+  ])];
   return _customSitesCache;
 }
 
@@ -31,21 +34,36 @@ async function getKeywords() {
   return _keywordsCache;
 }
 
-async function getAdultEnabled() {
-  if (_adultEnabledCache !== null) return _adultEnabledCache;
-  _adultEnabledCache = await getSetting('adultBlockEnabled', true);
-  return _adultEnabledCache;
-}
-
-async function getClassifierEnabled() {
-  if (_classifierCache !== null) return _classifierCache;
-  _classifierCache = await getSetting('classifierEnabled', true);
-  return _classifierCache;
+async function preservePermanentSites() {
+  const settings = await chrome.storage.sync.get({
+    customBlockedSites: [],
+    permanentBlockedSites: [],
+  });
+  const permanent = [...new Set([
+    ...settings.permanentBlockedSites,
+    ...settings.customBlockedSites,
+  ])];
+  if (permanent.length !== settings.permanentBlockedSites.length) {
+    await chrome.storage.sync.set({ permanentBlockedSites: permanent });
+  }
 }
 
 // Keep settings caches fresh when changed from the popup or another window
-chrome.storage.onChanged.addListener((_changes, area) => {
-  if (area === 'sync') invalidateCaches();
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') return;
+  invalidateCaches();
+
+  if (changes.customBlockedSites) {
+    preservePermanentSites().catch((e) => {
+      console.error('[SafeGuard] permanent-site migration:', e);
+    });
+  }
+
+  const protectedSettings = ['adultBlockEnabled', 'classifierEnabled', 'imageScanEnabled'];
+  const disabled = protectedSettings.filter((key) => changes[key]?.newValue === false);
+  if (disabled.length) {
+    chrome.storage.sync.set(Object.fromEntries(disabled.map((key) => [key, true])));
+  }
 });
 
 // ── Block statistics (stored in local storage) ───────────────────────────────
@@ -88,14 +106,12 @@ async function getStats() {
 
 async function rebuildRules() {
   invalidateCaches();
-  const adultEnabled = await getAdultEnabled();
 
   try {
-    await chrome.declarativeNetRequest.updateEnabledRulesets(
-      adultEnabled
-        ? { enableRulesetIds: ['adult_block_rules'], disableRulesetIds: [] }
-        : { enableRulesetIds: [], disableRulesetIds: ['adult_block_rules'] }
-    );
+    await chrome.declarativeNetRequest.updateEnabledRulesets({
+      enableRulesetIds: ['adult_block_rules'],
+      disableRulesetIds: [],
+    });
   } catch (e) {
     console.error('[SafeGuard] ruleset toggle:', e);
   }
@@ -140,6 +156,14 @@ function isKnownAdult(hostname) {
   return false;
 }
 
+function urlContainsKeyword(url, keyword) {
+  const terms = `${url.hostname} ${url.pathname} ${url.search}`
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return terms.includes(keyword);
+}
+
 // ── webNavigation — single place all blocking decisions are made ──────────────
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
@@ -166,35 +190,30 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (!reason) {
     const keywords = await getKeywords();
     if (keywords.length) {
-      const haystack = (hostname + url.pathname + url.search).toLowerCase();
-      if (keywords.some((kw) => kw && haystack.includes(kw))) {
+      if (keywords.some((kw) => kw && urlContainsKeyword(url, kw))) {
         reason = 'keyword';
       }
     }
   }
 
   if (!reason) {
-    const adultEnabled = await getAdultEnabled();
-    if (adultEnabled) {
+    // 3. Known adult domain list
+    if (isKnownAdult(hostname)) {
+      reason = 'adult';
+    }
 
-      // 2. Known adult domain list
-      if (isKnownAdult(hostname)) {
-        reason = 'adult';
-      }
+    // 4. Community blocklist (Steven Black / OISD / Hagezi)
+    if (!reason && await isRemoteBlocked(hostname)) {
+      reason = 'blocklist';
+    }
 
-      // 3. Community blocklist (Steven Black / UT1)
-      if (!reason && await isRemoteBlocked(hostname)) {
-        reason = 'blocklist';
-      }
-
-      // 4. TF-IDF URL classifier — catches unknown adult sites by pattern
-      if (!reason && await getClassifierEnabled()) {
-        const result = classifyURL(details.url);
-        if (result.isAdult) {
-          reason = 'classifier';
-          console.info('[SafeGuard] classifier hit:', hostname,
-            'score:', result.score.toFixed(1), 'tokens:', result.matchedTokens.join(', '));
-        }
+    // 5. TF-IDF URL classifier — catches unknown adult sites by pattern
+    if (!reason) {
+      const result = classifyURL(details.url);
+      if (result.isAdult) {
+        reason = 'classifier';
+        console.info('[SafeGuard] classifier hit:', hostname,
+          'score:', result.score.toFixed(1), 'tokens:', result.matchedTokens.join(', '));
       }
     }
   }
@@ -251,11 +270,44 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'NSFW_SCAN_REQUEST') {
+    if (!_sender.tab?.id) return false;
+    chrome.scripting.executeScript({
+      target: { tabId: _sender.tab.id },
+      files: ['vendor/nsfwjs.min.js', 'nsfw-scan.js'],
+    }).then(
+      () => sendResponse({ ok: true }),
+      (e) => sendResponse({ ok: false, error: e.message })
+    );
+    return true;
+  }
+
+  if (message.type === 'NSFW_CONFIRMED') {
+    if (!_sender.tab?.id) return false;
+    recordBlock()
+      .then(getStats)
+      .then((stats) => {
+        const blockedUrl = chrome.runtime.getURL('blocked.html') +
+          '?site=' + encodeURIComponent(message.host || 'this site') +
+          '&reason=image&today=' + stats.today;
+        return chrome.tabs.update(_sender.tab.id, { url: blockedUrl });
+      })
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+
 });
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 
 async function init() {
+  await chrome.storage.sync.set({
+    adultBlockEnabled: true,
+    classifierEnabled: true,
+    imageScanEnabled: true,
+  });
+  await preservePermanentSites();
   await rebuildRules();
   scheduleSync();
 
