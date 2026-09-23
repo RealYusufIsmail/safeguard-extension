@@ -41,17 +41,14 @@ const SOURCES = [
   },
   {
     name: 'Hagezi-NSFW',
-    url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/porn.txt',
-    // Format: "0.0.0.0 domain.com" — similar to Steven Black
+    url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/nsfw-onlydomains.txt',
+    // Format: one domain per line
     parse(text) {
       const domains = [];
       for (const line of text.split('\n')) {
-        const t = line.trim();
-        if (!t || t.startsWith('#') || !t.startsWith('0.0.0.0 ')) continue;
-        const d = t.slice(8).trim().toLowerCase();
-        if (d && d !== '0.0.0.0' && !d.includes(' ') && d.includes('.')) {
-          domains.push(d.replace(/^www\./, ''));
-        }
+        const d = line.trim().toLowerCase();
+        if (!d || d.startsWith('#') || !d.includes('.') || d.includes(' ') || d.includes('/')) continue;
+        domains.push(d.replace(/^www\./, ''));
       }
       return domains;
     },
@@ -112,16 +109,37 @@ async function _fetchSource(source) {
 // Fetches all sources in parallel, merges, deduplicates, and stores.
 async function syncBlocklist() {
   const results = await Promise.all(SOURCES.map(_fetchSource));
+  const errors = results.filter(({ error }) => error).map(({ name, error }) => `${name}: ${error}`);
 
-  // Merge all sources into one deduplicated set
+  // Keep the last complete list when a provider is temporarily unavailable.
+  if (errors.length) {
+    const previous = await chrome.storage.local.get({ [STORAGE_KEY]: [] });
+    if (previous[STORAGE_KEY].length) {
+      return { ok: false, error: 'Some sources failed; the previous blocklist is still active.', warnings: errors };
+    }
+  }
+
+  // Sample each source across its full list before filling remaining capacity.
   const merged = new Set();
   const sourceStats = {};
   for (const { name, domains } of results) {
     sourceStats[name] = domains.length;
-    for (const d of domains) {
-      if (merged.size >= MAX_DOMAINS) break;
-      merged.add(d);
+  }
+
+  const available = results.filter(({ domains }) => domains.length);
+  const perSource = Math.ceil(MAX_DOMAINS / available.length);
+  for (const { domains } of available) {
+    const picks = Math.min(perSource, domains.length);
+    for (let i = 0; i < picks && merged.size < MAX_DOMAINS; i += 1) {
+      merged.add(domains[Math.floor(i * domains.length / picks)]);
     }
+  }
+  for (const { domains } of available) {
+    for (const domain of domains) {
+      if (merged.size >= MAX_DOMAINS) break;
+      merged.add(domain);
+    }
+    if (merged.size >= MAX_DOMAINS) break;
   }
 
   // Bail if every source failed
@@ -140,7 +158,6 @@ async function syncBlocklist() {
     [SOURCE_STATS_KEY]: sourceStats,
   });
 
-  const errors = results.filter(r => r.error).map(r => `${r.name}: ${r.error}`);
   return {
     ok: true,
     count: totalNew,

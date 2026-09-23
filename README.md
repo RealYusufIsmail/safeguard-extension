@@ -9,7 +9,7 @@ A Chrome extension that blocks adult content and custom websites using multiple 
 | **Known domain list** | 30+ hardcoded adult domains | ~0 ms |
 | **Custom site blocker** | Block any domain you add | ~0 ms |
 | **Keyword blocker** | Block any URL containing a word | ~0 ms |
-| **Community blocklist** | 12 000 domains synced from [Steven Black](https://github.com/StevenBlack/hosts) every 24 h | ~0 ms |
+| **Community blocklist** | Up to 30,000 domains sampled from [Steven Black](https://github.com/StevenBlack/hosts), [OISD](https://oisd.nl/), and [HaGeZi](https://github.com/hagezi/dns-blocklists) every 24 h | Local lookup |
 | **TF-IDF URL classifier** | Pre-baked model scores URL tokens for adult patterns | < 0.1 ms |
 | **NSFWJS image scanner** | MobileNetV2 on-device model, only injected on suspect pages | 20–50 ms/img, GPU |
 
@@ -21,10 +21,6 @@ A Chrome extension that blocks adult content and custom websites using multiple 
 - **Custom Blocked Sites** — confirm and permanently block domains with no unblock control
 - **Blocked Keywords** — add/remove keyword strings
 - **Stats** — *Blocked Today* and *All Time* counters; badge on the toolbar icon
-
-## Screenshots
-
-> Add screenshots here once the extension is published.
 
 ## Installation
 
@@ -87,9 +83,7 @@ Normal pages (news, email, shopping) never trigger step 2 and the model is never
 
 ## Privacy
 
-- No data leaves your device. All detection runs locally.
-- The community blocklist is fetched from a public GitHub URL once per day — no identifiable data is sent.
-- No analytics, no telemetry.
+Browsing checks and image classification run on your device. The extension downloads public blocklists from GitHub and OISD, which receive ordinary network request information such as your IP address. SafeGuard does not send your browsing history, custom block entries, or images to those services. It has no analytics or telemetry. See [the privacy policy](PRIVACY.md) for details.
 
 ## Contributing
 

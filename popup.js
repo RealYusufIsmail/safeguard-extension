@@ -159,7 +159,8 @@ syncBtn.addEventListener('click', async () => {
     syncBar.style.width = '100%';
     setTimeout(() => { syncBar.style.width = '0%'; }, 1200);
     await refreshBlocklistMeta();
-    setStatus(`Blocklist updated — ${r.count.toLocaleString()} domains`, 'success');
+    const suffix = r.warnings?.length ? ' (some sources unavailable)' : '';
+    setStatus(`Blocklist updated — ${r.count.toLocaleString()} domains${suffix}`, r.warnings?.length ? 'error' : 'success');
   } else {
     setStatus('Sync failed: ' + (r.error || 'unknown'), 'error');
   }
